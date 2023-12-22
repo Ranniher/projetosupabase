@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" />
+    <title>Shopping List</title>
+    <style>
+        form {
+            border: dashed black 1px;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        button.add,
+        button.finaliza,
+        button.consulta {
+            margin-top: 10px;
+        }
+
+        .btn-icon {
+            padding: 5px;
+            background: #ffffff;
+        }
+
+        th {
+            background-color: #3bb137;
+        }
+
+        .remove-icon,
+        .quantity-button {
+            cursor: pointer;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 class="text-center"><strong>Lista de Compras</strong></h1>
+    <div id="app">
+        <form v-on:submit.prevent="addItem">
+            <div class="form-group">
+                <label for="itemName">Produto:</label>
+                <input type="text" class="form-control" required placeholder="Nome do item..." v-model="itemName" />
+            </div>
+            <div class="form-group">
+                <label for="itemNumber">Quantidade:</label>
+                <input type="number" class="form-control" placeholder="Qtde de itens..." v-model="itemNumber" />
+            </div>
+            <div class="form-group">
+                <label for="itemPrice">Preço:</label>
+                <input type="number" step="0.01" class="form-control" placeholder="Preço do item..."
+                    v-model="itemPrice" />
+            </div>
+            <button class="btn btn-primary" type="submit"><span
+                    class="glyphicon glyphicon-thumbs-up img-circle text-primary btn-icon"></span> Adicionar ao
+                Carrinho</button>
+            <button class="btn btn-success" type="button" v-on:click="finaliza()">Finalizar</button>
+        </form>
+
+        <form v-on:submit.prevent="consultaProdutos">
+            <div class="form-group">
+                <label for="searchProduct">Buscar Produto:</label>
+                <input type="text" class="form-control" placeholder="Nome do produto..." v-model="searchProduct" />
+            </div>
+            <button class="btn btn-success" type="submit">Consultar</button>
+        </form>
+
+        <div>
+            <h3><em>Carrinho de Compras<img src="E:\Web\carrinho.png" alt="carrinho.png">:</em></h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Preço</th>
+                        <th>Total</th>
+                        <th>Remover</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(item, index) in shoppingList" :key="index">
+                        <td>{{ item.name }}</td>
+                        <td>
+                            <span class="quantity-button" @click="increaseQuantity(index)">+</span>
+                            {{ item.number }}
+                            <span class="quantity-button" @click="decreaseQuantity(index)">-</span>
+                        </td>
+                        <td>{{ item.price.toFixed(2) }}</td>
+                        <td>{{ item.total.toFixed(2) }}</td>
+                        <td>
+                            <span class="btn btn-danger btn-sm float-end" @click="removeItem(index)">
+                                <i class="fas fa-shopping-cart"></i>
+                            </span>
+
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3>
+                <p>Total Geral da Compra: R$ {{ getTotalGeral() }}</p>
+            </h3>
+        </div>
+    </div>
+
+    <script>
+        const apiUrlCarrinho = 'https://byqlkggkkjcuqouxhnbh.supabase.co';
+        const apiUrlConsulta = 'https://byqlkggkkjcuqouxhnbh.supabase.co';
+        const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5cWxrZ2dra2pjdXFvdXhobmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDI4MTYwMDUsImV4cCI6MjAxODM5MjAwNX0.96fWa2F-wdFSVs1y1j89AAmOPWV97V1gBJtOxpvYSAs';
+        const apiAuthorization = 'Bearer ' + apiKey;
+        const app = Vue.createApp({
+            data() {
+                return {
+                    itemName: null,
+                    itemNumber: null,
+                    itemPrice: null,
+                    shoppingList: [{
+                        name: "Tomates",
+                        number: 0,
+                        price: 0.70,
+                        total: 0.00
+                    }],
+                    searchProduct: null,
+                    searchResults: []
+                };
+            },
+            methods: {
+                addItem() {
+                    let item = {
+                        name: this.itemName,
+                        number: this.itemNumber,
+                        price: this.itemPrice,
+                        total: this.itemNumber * this.itemPrice
+                    };
+                    this.shoppingList.push(item);
+                    this.itemName = null;
+                    this.itemNumber = null;
+                    this.itemPrice = null;
+                },
+                removeItem(index) {
+                    this.shoppingList.splice(index, 1);
+                },
+                getTotalGeral() {
+                    return this.shoppingList.reduce((total, item) => total + item.total, 0).toFixed(2);
+                },
+                finaliza() {
+                    console.log("CARRINHO ANTES=", JSON.stringify(this.shoppingList));
+                    var carrinho = this;
+                    $.ajax({
+                        type: 'post',
+                        url: apiUrlCarrinho,
+                        data: JSON.stringify(carrinho.shoppingList),
+                        contentType: 'application/json; charset=utf-8',
+                        crossDomain: true,
+                        headers: {
+                            'apikey': apiKey,
+                            'Authorization': apiAuthorization,
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+                        },
+                        success: function (dados, xhr, textStatus) {
+                            window.alert("Ok. GRAVADOS " + carrinho.shoppingList.length + " itens.");
+                            carrinho.shoppingList = [];
+                            console.log("CARRINHO DEPOIS", JSON.stringify(carrinho.shoppingList));
+                        },
+                        error: (erro) => {
+                            window.alert("Ocorreu um erro: " + erro.message);
+                        }
+                    });
+                },
+                consultaProdutos() {
+                    var consulta = this;
+                    $.ajax({
+                        type: 'get',
+                        url: apiUrlConsulta,
+                        data: { name: consulta.searchProduct },
+                        contentType: 'application/json; charset=utf-8',
+                        crossDomain: true,
+                        headers: {
+                            'apikey': apiKey,
+                            'Authorization': apiAuthorization,
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+                        },
+                        success: function (dados, xhr, textStatus) {
+                            consulta.searchResults = dados;
+                            console.log("RESULTADOS DA CONSULTA", JSON.stringify(consulta.searchResults));
+                        },
+                        error: (erro) => {
+                            window.alert("Ocorreu um erro na consulta: " + erro.message);
+                        }
+                    });
+                },
+                increaseQuantity(index) {
+                    this.shoppingList[index].number++;
+                    this.shoppingList[index].total = this.shoppingList[index].number * this.shoppingList[index].price;
+                },
+                decreaseQuantity(index) {
+                    if (this.shoppingList[index].number > 1) {
+                        this.shoppingList[index].number--;
+                        this.shoppingList[index].total = this.shoppingList[index].number * this.shoppingList[index].price;
+                    }
+                }
+            }
+        });
+        app.mount("#app");
+    </script>
+    </script>
+</body>
+
+</html>
